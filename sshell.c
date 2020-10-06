@@ -4,10 +4,18 @@
 #include <unistd.h>
 
 #define CMDLINE_MAX 512
+#define ARGS_MAX 16
+#define TOKEN_MAX 32
+
+struct Input{
+    char *cmd[CMDLINE_MAX];
+    char *args[ARGS_MAX];
+    char *tokens[TOKEN_MAX];
+};
 
 int main(void)
 {
-        char cmd[CMDLINE_MAX];
+        struct Input input;
 
         while (1) {
                 char *nl;
