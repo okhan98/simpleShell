@@ -8,9 +8,9 @@
 #define TOKEN_MAX 32
 
 struct Input{
-    char *cmd[CMDLINE_MAX];
-    char *args[ARGS_MAX];
-    char *tokens[TOKEN_MAX];
+    char cmd[CMDLINE_MAX];
+    char args[ARGS_MAX];
+    char tokens[TOKEN_MAX];
 };
 
 int main(void)
@@ -26,29 +26,29 @@ int main(void)
                 fflush(stdout);
 
                 /* Get command line */
-                fgets(cmd, CMDLINE_MAX, stdin);
+                fgets(input.cmd, CMDLINE_MAX, stdin);
 
                 /* Print command line if stdin is not provided by terminal */
                 if (!isatty(STDIN_FILENO)) {
-                        printf("%s", cmd);
+                        printf("%s", input.cmd);
                         fflush(stdout);
                 }
 
                 /* Remove trailing newline from command line */
-                nl = strchr(cmd, '\n');
+                nl = strchr(input.cmd, '\n');
                 if (nl)
                         *nl = '\0';
 
                 /* Builtin command */
-                if (!strcmp(cmd, "exit")) {
+                if (!strcmp(input.cmd, "exit")) {
                         fprintf(stderr, "Bye...\n");
                         break;
                 }
 
                 /* Regular command */
-                retval = system(cmd);
+                retval = system(input.cmd);
                 fprintf(stdout, "Return status value for '%s': %d\n",
-                        cmd, retval);
+                        input.cmd, retval);
         }
 
         return EXIT_SUCCESS;
