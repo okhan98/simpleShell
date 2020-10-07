@@ -67,6 +67,7 @@ int main(void)
                     counter = counter + 1;
                 }
                 /* Regular command */
+                input.args[counter] = NULL;
                 pid = fork();
 
                 if(pid == 0){
