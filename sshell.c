@@ -67,7 +67,7 @@ int main(void)
                     counter = counter + 1;
                 }
                 /* Regular command */
-                input.args[counter] = NULL;
+                input.args[counter] = NULL; // Resets args
                 pid = fork();
 
                 if(pid == 0){
@@ -79,6 +79,13 @@ int main(void)
                 else if(pid > 0) {
 
                     // Parent
+
+                    // Change directory
+                    if(strcmp(input.cmd,"cd") == 0)
+                    {
+                        chdir(*input.args);
+                    }
+
                     int status;
                     waitpid(pid, &status, 0);
                     printf("+ completed '%s' [%d] \n", message, WEXITSTATUS(status));
