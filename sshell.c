@@ -40,7 +40,21 @@ int checkRedirect(struct Input *input) {
             for(size_t k = 0; k < strlen(input->args[i]); k++) {
                 if (input->args[i][k] == '>') {
                     if (k !=0 && k != strlen(input->args[i])-1) {
-                        printf("Found redirection character in middle of token at position: %lu \n", k);
+                        size_t length = strlen(input->args[i]);
+                        char currToken[length];
+                        strcpy(currToken, input->args[i]);
+                        char *newcmd = strtok(input->args[i], ">");
+                        input->args[0] = newcmd;
+                        newcmd = strtok(NULL, ">");
+                        strcpy(input->file, newcmd);
+                        willRedirect = 1;
+                        size_t argLen = strlen(*input->args);
+                        for (size_t j = i; j < argLen; j++) {
+                            if (input->args[j+1] != NULL && input->args[j+2] != NULL) {
+                                input->args[j+1] = input->args[j+2];
+                                input->args[strlen(*input->args)] = NULL;
+                            }
+                        }
                     }
                 }
             }
