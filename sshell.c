@@ -15,6 +15,35 @@ struct Input{
     char file[TOKEN_MAX];
 };
 
+struct Pipe{
+ char *command[CMDLINE_MAX];
+};
+
+void parsePipe(struct Input input[CMDLINE_MAX], char raw[CMDLINE_MAX], int *commandCount) {
+    /* String Tokenizer */
+    char *nl;
+    int counter = 0;
+    char *token = strtok(raw, "|");
+    while(token != NULL) {
+        /* Remove trailing newline from command line */
+        nl = strchr(token, '\n');
+        if(token[strlen(token)-1] == ' ') {
+            token[strlen(token)-1] = '\0';
+
+        }
+        if(token[0] == ' '){
+            token++;
+        }
+
+        struct Input temp;
+        strcpy(temp.cmd, token);
+        input[counter] = temp;
+        token = strtok(NULL, "|");
+        counter++;
+        *commandCount = *commandCount + 1;
+    }
+};
+
 void parseInput(struct Input *input) {
     /* String Tokenizer */
     char *token = strtok(input->cmd, " ");
@@ -100,87 +129,89 @@ int checkRedirect(struct Input *input) {
 int main(void)
 {
     struct Input input;
+    struct Input piping[CMDLINE_MAX];
+    char tempPipe[CMDLINE_MAX];
+    int commandCount = 0;
     while (1) {
 
-                char *nl;
-                int retval;
+        char *nl;
+        int retval;
 
-                pid_t pid;
+        pid_t pid;
 
-                /* Print prompt */
-                printf("sshell$ ");
-                fflush(stdout);
+        /* Print prompt */
+        printf("sshell$ ");
+        fflush(stdout);
 
-                /* Get command line */
-                fgets(input.cmd, CMDLINE_MAX, stdin);
+        /* Get command line */
+        fgets(tempPipe, CMDLINE_MAX, stdin);
 
-                /* Print command line if stdin is not provided by terminal */
-                if (!isatty(STDIN_FILENO)) {
-                        printf("%s", input.cmd);
-                        fflush(stdout);
-                }
-
-                /* Remove trailing newline from command line */
-                nl = strchr(input.cmd, '\n');
-                if (nl)
-                        *nl = '\0';
-
-                /* Builtin command */
-                if (!strcmp(input.cmd, "exit")) {
-                        fprintf(stderr, "Bye...\n");
-                        break;
-                }
-                char message[CMDLINE_MAX];
-                strcpy(message, input.cmd);
-                printf("message: %s \n", message);
-
-                /* Send the input to be parsed for arguments */
-                parseInput(&input);
-                int willRedirect = checkRedirect(&input);
-
-                /* Remove this later, for debugging */
-                printf("[DEV]: list of arguments: \n");
-                for (int i = 0; input.args[i] != NULL; i++) {
-                    printf("%s \n", input.args[i]);
-                }
-
-                /* Regular command */
-                pid = fork();
-
-                if(pid == 0){
-                    // Child
-                    int fd;
-                    if (willRedirect == 1) {
-                        fd = open(input.file, O_WRONLY | O_CREAT, 0644);
-                        dup2(fd, STDOUT_FILENO);
-                        close(fd);
-                    }
-                    retval = execvp(input.cmd, input.args);
-                    perror("execvp");
-
-                    exit(1);
-                }
-                else if(pid > 0) {
-                    // Parent
-
-                    // Change directory
-                    if(strcmp(input.cmd,"cd") == 0)
-                    {
-                        chdir(*input.args);
-                    }
-
-                    int status;
-                    waitpid(pid, &status, 0);
-                    printf("+ completed '%s' [%d] \n", message, WEXITSTATUS(status));
-
-                }
-                else{
-                    perror("fork");
-                    exit(1);
-                }
-             //   fprintf(stdout, "Return status value for '%s': %d\n", input.cmd, retval);
-
+        /* Print command line if stdin is not provided by terminal */
+        if (!isatty(STDIN_FILENO)) {
+            printf("%s", tempPipe);
+            fflush(stdout);
         }
 
+        /* Remove trailing newline from command line */
+        nl = strchr(tempPipe, '\n');
+        if (nl)
+            *nl = '\0';
+
+        /* Builtin command */
+        if (!strcmp(tempPipe, "exit")) {
+            fprintf(stderr, "Bye...\n");
+            break;
+        }
+        char message[CMDLINE_MAX];
+        strcpy(message, tempPipe);
+        printf("message: %s \n", message);
+
+
+        /* Send the input to be parsed for arguments */
+        parsePipe(piping, tempPipe, &commandCount);
+
+        printf("commandCount: %d \n",commandCount);
+        /* Regular command */
+        for(int i = 0; i < commandCount; i++){
+            parseInput(&piping[i]);
+            int willRedirect = checkRedirect(&piping[i]);
+
+            /* Remove this later, for debugging */
+            printf("[DEV]: list of arguments: %s \n", piping[i].cmd);
+            pid = fork();
+
+            if (pid == 0) {
+                // Child
+                int fd;
+                if (willRedirect == 1) {
+                    fd = open(input.file, O_WRONLY | O_CREAT, 0644);
+                    dup2(fd, STDOUT_FILENO);
+                    close(fd);
+                }
+                retval = execvp(piping[i].cmd, piping[i].args);
+                perror("execvp");
+
+                exit(1);
+            } else if (pid > 0) {
+                // Parent
+
+                // Change directory
+                if (strcmp(input.cmd, "cd") == 0) {
+                    chdir(*input.args);
+                }
+
+                int status;
+                waitpid(pid, &status, 0);
+                printf("+ completed '%s' [%d] \n", message, WEXITSTATUS(status));
+
+            } else {
+                perror("fork");
+                exit(1);
+            }
+            //   fprintf(stdout, "Return status value for '%s': %d\n", input.cmd, retval);
+
+        }
+        commandCount = 0;
+    }
         return EXIT_SUCCESS;
 }
