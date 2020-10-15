@@ -131,15 +131,13 @@ void checkRedirect(struct Input *input) {
 
 int main(void)
 {
-    struct Input piping[CMDLINE_MAX];
-    char tempCmd[CMDLINE_MAX];
-    int commandCount = 0;
     while (1) {
+        struct Input piping[CMDLINE_MAX];
+        char tempCmd[CMDLINE_MAX];
+        int commandCount = 0;
 
         char *nl;
-        int retval;
-
-        pid_t pid;
+        //int retval;
 
         /* Print prompt */
         printf("sshell$ ");
@@ -170,49 +168,58 @@ int main(void)
 
         /* Send the raw input to be parsed for piping */
         parsePipe(piping, tempCmd, &commandCount);
-        printf("[DEV]: commandCount: %d \n",commandCount);
 
-        /* Regular command */
-        for(int i = 0; i < commandCount; i++){
+        int status;
+        pid_t pid;
+        int fds[2*commandCount];
+
+        for(int i = 0; i < commandCount; i++) {
             parseInput(&piping[i]);
             checkRedirect(&piping[i]);
-
-            /* Remove this later, for debugging */
-            printf("[DEV]: current command: %s \n", piping[i].cmd);
-
-            pid = fork();
-
-            if (pid == 0) {
-                // Child
-                int fd;
-                if (piping[i].willRedirect == 1) {
-                    fd = open(piping[i].file, O_WRONLY | O_CREAT, 0644);
-                    dup2(fd, STDOUT_FILENO);
-                    close(fd);
-                }
-
-                retval = execvp(piping[i].cmd, piping[i].args);
-                perror("execvp");
-                exit(1);
-            } else if (pid > 0) {
-                // Parent
-
-                /* Change directory commands */
-                if (strcmp(piping[i].cmd, "cd") == 0) {
-                    chdir(*piping[i].args);
-                }
-
-                int status;
-                waitpid(pid, &status, 0);
-                printf("+ completed '%s' [%d] \n", message, WEXITSTATUS(status));
-
-            } else {
-                perror("fork");
-                exit(1);
+            if (pipe(fds + i*2)) {
+                perror("pipe");
+                exit(EXIT_FAILURE);
             }
-
         }
-        commandCount = 0;
+        int outfd;
+
+        for (int i = 0; i < commandCount; i++) {
+            pid = fork();
+            if (pid == 0) {
+                /* Child */
+                if (piping[i].willRedirect == 1) {
+                    outfd = open(piping[i].file, O_WRONLY | O_CREAT, 0644);
+                    dup2(outfd, STDOUT_FILENO);
+                }
+                if (i != 0) {
+                    dup2(fds[(i-1)*2], 0);
+                }
+                if (i != commandCount-1) {
+                    dup2(fds[(i*2)+1], 1);
+                }
+                execvp(piping[i].cmd, piping[i].args);
+                for (int k = 0; k < 2*commandCount; k++) {
+                    close(fds[k]);
+                }
+                perror("execvp");
+                exit(EXIT_SUCCESS);
+            } else if (pid > 0) {
+                /* Parent */
+                if (strcmp(piping[i].cmd, "cd") == 0) {
+                    chdir(piping[i].args[1]);
+                    printf("cd \n");
+                }
+                waitpid(pid, &status, 0);
+            } else {
+                /* Error forking */
+                perror("fork");
+                exit(EXIT_FAILURE);
+            }
+        }
+        for (int i = 0; i < 2*commandCount; i++) {
+            close(fds[i]);
+        }
+        printf("+ completed '%s' [%d] \n", message, WEXITSTATUS(status));
     }
         return EXIT_SUCCESS;
 }
