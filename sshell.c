@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #define CMDLINE_MAX 512
 #define ARGS_MAX 16
