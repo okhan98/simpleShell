@@ -262,7 +262,7 @@ void executeCommands(struct Input piping[], int commandCount, char message[]) {
             if (strcmp(piping[i].cmd, "pwd") == 0) {
                 char cwd[CMDLINE_MAX];
                 if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                    printf("%s \n", cwd);
+                    printf("%s\n", cwd);
                     exit(EXIT_SUCCESS);
                 } else {
                     perror("getcwd");
