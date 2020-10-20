@@ -42,7 +42,7 @@ void parsePipe(struct Input input[CMDLINE_MAX], char raw[CMDLINE_MAX], int *comm
     }
 };
 
-void parseInput(struct Input *input) {
+int parseInput(struct Input *input) {
     /* String Tokenizer */
     char *token = strtok(input->cmd, " ");
     int counter = 0;
@@ -59,6 +59,10 @@ void parseInput(struct Input *input) {
         counter++;
     }
     input->args[counter] = NULL; // Sets last argument to NULL to prevent whitespace/empty argument issues
+    if (counter > ARGS_MAX) {
+        return -1;
+    }
+    return 0;
 };
 
 void checkRedirect(struct Input *input) {
@@ -368,11 +372,17 @@ int main(void)
             parsePipe(piping, tempCmd, &commandCount);
 
             /* Parse commands, create array of file descriptors, and execute commands */
+            int stopExecFlag = 0;
             for(int i = 0; i < commandCount; i++) {
-                parseInput(&piping[i]);
+                if (parseInput(&piping[i]) < 0) {
+                    fprintf(stderr, "Error: too many process arguments \n");
+                    stopExecFlag = 1;
+                }
                 checkRedirect(&piping[i]);
             }
-            executeCommands(piping, commandCount, message);
+            if (!stopExecFlag) {
+                executeCommands(piping, commandCount, message);
+            }
         }
     }
     return EXIT_SUCCESS;
