@@ -208,55 +208,83 @@ void checkRedirect(struct Input *input) {
     }
 };
 
-void printCmdCompletion(char message[], int status) {
-    printf("+ completed '%s' [%d] \n", message, status);
+void printCmdCompletion(char message[], int statusArray[], int commandCount) {
+    printf("+ completed '%s' ", message);
+    for (int i = 0; i < commandCount; i++) {
+        printf("[%d]", statusArray[i]);
+    }
+    printf("\n");
 };
 
-void executeCommands(struct Input piping[], int fds[], int commandCount, char message[]) {
+void executeCommands(struct Input piping[], int commandCount, char message[]) {
     int status;
+    int statusArray[commandCount];
     pid_t pid;
-    int outfd;
+    int fd[2];
+    int inFD = 0;
+    int outFD;
 
     for (int i = 0; i < commandCount; i++) {
+        pipe(fd);
         pid = fork();
         if (pid == 0) {
             /* Child */
+            if (i < commandCount-1) { // Command is not the last in the chain, output to next input
+                if (dup2(fd[STDOUT_FILENO], STDOUT_FILENO) < 0) {
+                    perror("dup2");
+                }
+                close(fd[STDOUT_FILENO]);
+            }
+            if (i != 0) { // Command is not the first in the chain, get previous output
+                if (dup2(inFD, STDIN_FILENO) < 0) {
+                    perror("dup2");
+                }
+                close(inFD);
+            }
             if (piping[i].willRedirect == 1) {
                 if (piping[i].willAppend == 1) {
-                    outfd = open(piping[i].file, O_WRONLY | O_APPEND | O_CREAT, 0644);
+                    outFD = open(piping[i].file, O_WRONLY | O_APPEND | O_CREAT, 0644);
                 } else {
-                    outfd = open(piping[i].file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+                    outFD = open(piping[i].file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
                 }
-                if (outfd != -1) {
-                    dup2(outfd, STDOUT_FILENO);
-                    close(outfd);
+                if (outFD != -1) {
+                    dup2(outFD, STDOUT_FILENO);
+                    close(outFD);
                 } else {
                     perror("open");
                     exit(EXIT_FAILURE);
                 }
             }
-            if (i != 0) {
-                dup2(fds[(i-1)*2], 0);
+            if (strcmp(piping[i].cmd, "pwd") == 0) {
+                char cwd[CMDLINE_MAX];
+                if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                    printf("%s \n", cwd);
+                    exit(EXIT_SUCCESS);
+                } else {
+                    perror("getcwd");
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                execvp(piping[i].cmd, piping[i].args);
+                perror("execvp");
+                exit(EXIT_SUCCESS);
             }
-            if (i != commandCount-1) {
-                dup2(fds[(i*2)+1], 1);
-            }
-            execvp(piping[i].cmd, piping[i].args);
-            perror("execvp");
-            exit(EXIT_SUCCESS);
         } else if (pid > 0) {
             /* Parent */
             if (strcmp(piping[i].cmd, "cd") == 0) {
                 chdir(piping[i].args[1]);
             }
             waitpid(pid, &status, 0);
+            statusArray[i] = WEXITSTATUS(status);
         } else {
             /* Error forking */
             perror("fork");
             exit(EXIT_FAILURE);
         }
+        close(fd[1]);
+        inFD = fd[0];
     }
-    printCmdCompletion(message, WEXITSTATUS(status));
+    printCmdCompletion(message, statusArray, commandCount);
 };
 
 void execSLS(char message[]) {
@@ -264,6 +292,7 @@ void execSLS(char message[]) {
     struct dirent **files;
     char cwd[CMDLINE_MAX];
     struct stat *fileInfo[CMDLINE_MAX];
+    int statusArray[1];
     if (getcwd(cwd, sizeof(cwd))) {
         count = scandir(cwd, &files, NULL, alphasort);
         if (count > 0) {
@@ -281,14 +310,17 @@ void execSLS(char message[]) {
                 }
                 printf("%s (%d bytes)\n", files[i]->d_name, fileSize);
             }
-            printCmdCompletion(message, EXIT_SUCCESS);
+            statusArray[0] = EXIT_SUCCESS;
+            printCmdCompletion(message, statusArray, 1);
         } else {
             printf("Error: cannot open directory \n");
-            printCmdCompletion(message, EXIT_FAILURE);
+            statusArray[0] = EXIT_FAILURE;
+            printCmdCompletion(message, statusArray, 1);
         }
     } else {
         perror("getcwd");
-        printCmdCompletion(message, EXIT_FAILURE);
+        statusArray[0] = EXIT_FAILURE;
+        printCmdCompletion(message, statusArray, 1);
     }
 };
 
@@ -300,7 +332,6 @@ int main(void)
         int commandCount = 0;
 
         char *nl;
-        //int retval;
 
         /* Print prompt */
         printf("sshell$ ");
@@ -326,7 +357,9 @@ int main(void)
         /* Builtin and user command chain */
         if (!strcmp(tempCmd, "exit")) {
             fprintf(stderr, "Bye...\n");
-            printCmdCompletion(message, EXIT_SUCCESS);
+            int statusArray[1];
+            statusArray[0] = EXIT_SUCCESS;
+            printCmdCompletion(message, statusArray, 1);
             break;
         } else if (!strcmp(tempCmd, "sls")) {
             execSLS(message);
@@ -335,16 +368,11 @@ int main(void)
             parsePipe(piping, tempCmd, &commandCount);
 
             /* Parse commands, create array of file descriptors, and execute commands */
-            int fds[2*commandCount];
             for(int i = 0; i < commandCount; i++) {
                 parseInput(&piping[i]);
                 checkRedirect(&piping[i]);
-                if (pipe(fds + i*2)) { // create pipes
-                    perror("pipe");
-                    exit(EXIT_FAILURE);
-                }
             }
-            executeCommands(piping, fds, commandCount, message);
+            executeCommands(piping, commandCount, message);
         }
     }
     return EXIT_SUCCESS;
