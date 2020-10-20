@@ -213,11 +213,11 @@ void checkRedirect(struct Input *input) {
 };
 
 void printCmdCompletion(char message[], int statusArray[], int commandCount) {
-    printf("+ completed '%s' ", message);
+    fprintf(stderr, "+ completed '%s' ", message);
     for (int i = 0; i < commandCount; i++) {
-        printf("[%d]", statusArray[i]);
+        fprintf(stderr, "[%d]", statusArray[i]);
     }
-    printf("\n");
+    fprintf(stderr, "\n");
 };
 
 void executeCommands(struct Input piping[], int commandCount, char message[]) {
