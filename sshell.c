@@ -229,64 +229,65 @@ void executeCommands(struct Input piping[], int commandCount, char message[]) {
     int outFD;
 
     for (int i = 0; i < commandCount; i++) {
-        pipe(fd);
-        pid = fork();
-        if (pid == 0) {
-            /* Child */
-            if (i < commandCount-1) { // Command is not the last in the chain, output to next input
-                if (dup2(fd[STDOUT_FILENO], STDOUT_FILENO) < 0) {
-                    perror("dup2");
-                }
-                close(fd[STDOUT_FILENO]);
-            }
-            if (i != 0) { // Command is not the first in the chain, get previous output
-                if (dup2(inFD, STDIN_FILENO) < 0) {
-                    perror("dup2");
-                }
-                close(inFD);
-            }
-            if (piping[i].willRedirect == 1) {
-                if (piping[i].willAppend == 1) {
-                    outFD = open(piping[i].file, O_WRONLY | O_APPEND | O_CREAT, 0644);
-                } else {
-                    outFD = open(piping[i].file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
-                }
-                if (outFD != -1) {
-                    dup2(outFD, STDOUT_FILENO);
-                    close(outFD);
-                } else {
-                    perror("open");
-                    exit(EXIT_FAILURE);
-                }
-            }
-            if (strcmp(piping[i].cmd, "pwd") == 0) {
-                char cwd[CMDLINE_MAX];
-                if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                    printf("%s\n", cwd);
-                    exit(EXIT_SUCCESS);
-                } else {
-                    perror("getcwd");
-                    exit(EXIT_FAILURE);
-                }
-            } else {
-                execvp(piping[i].cmd, piping[i].args);
-                perror("execvp");
-                exit(EXIT_SUCCESS);
-            }
-        } else if (pid > 0) {
-            /* Parent */
-            if (strcmp(piping[i].cmd, "cd") == 0) {
-                chdir(piping[i].args[1]);
-            }
-            waitpid(pid, &status, 0);
-            statusArray[i] = WEXITSTATUS(status);
+        if (strcmp(piping[i].cmd, "cd") == 0) {
+            chdir(piping[i].args[1]);
         } else {
-            /* Error forking */
-            perror("fork");
-            exit(EXIT_FAILURE);
+            pipe(fd);
+            pid = fork();
+            if (pid == 0) {
+                /* Child */
+                if (i < commandCount-1) { // Command is not the last in the chain, output to next input
+                    if (dup2(fd[STDOUT_FILENO], STDOUT_FILENO) < 0) {
+                        perror("dup2");
+                    }
+                    close(fd[STDOUT_FILENO]);
+                }
+                if (i != 0) { // Command is not the first in the chain, get previous output
+                    if (dup2(inFD, STDIN_FILENO) < 0) {
+                        perror("dup2");
+                    }
+                    close(inFD);
+                }
+                if (piping[i].willRedirect == 1) {
+                    if (piping[i].willAppend == 1) {
+                        outFD = open(piping[i].file, O_WRONLY | O_APPEND | O_CREAT, 0644);
+                    } else {
+                        outFD = open(piping[i].file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+                    }
+                    if (outFD != -1) {
+                        dup2(outFD, STDOUT_FILENO);
+                        close(outFD);
+                    } else {
+                        perror("open");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                if (strcmp(piping[i].cmd, "pwd") == 0) {
+                    char cwd[CMDLINE_MAX];
+                    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                        printf("%s\n", cwd);
+                        exit(EXIT_SUCCESS);
+                    } else {
+                        perror("getcwd");
+                        exit(EXIT_FAILURE);
+                    }
+                } else {
+                    execvp(piping[i].cmd, piping[i].args);
+                    perror("execvp");
+                    exit(EXIT_SUCCESS);
+                }
+            } else if (pid > 0) {
+                /* Parent */
+                waitpid(pid, &status, 0);
+                statusArray[i] = WEXITSTATUS(status);
+            } else {
+                /* Error forking */
+                perror("fork");
+                exit(EXIT_FAILURE);
+            }
+            close(fd[1]);
+            inFD = fd[0];
         }
-        close(fd[1]);
-        inFD = fd[0];
     }
     printCmdCompletion(message, statusArray, commandCount);
 };
