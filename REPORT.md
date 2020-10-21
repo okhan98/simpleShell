@@ -2,10 +2,16 @@ Ethan Turner ID#915729654	 , Omair Khan	 ID#914135359
 
 ## High Level Explanation of Design and Implementation:
 
-### struct Input: 
-We created a data structure which kept track of the input the user was entering. We categorized the user input in 4 different ways, we treated them either as commands, arguments, tokens, or files. The other functions we implemented had logic to determine which type of input the user was entering. In addition to those 4 attributes to keep track of type of input we implemented two more atttributes which kept track of whether we redirect input or append input. Which were used to flag whether the input was being redirected or appended.
+### struct Input:
+We created a data structure which kept track of the input the user was entering.
+We categorized the user input in 4 different ways, we treated them either as
+commands, arguments, tokens, or files. The other functions we implemented had
+logic to determine which type of input the user was entering. In addition to
+those 4 attributes to keep track of type of input we implemented two more
+attributes which kept track of whether we redirect input or append input. Which
+were used to flag whether the input was being redirected or appended.
 
-### void parsePipe: 
+### void parsePipe:
 `parsePipe()` takes three arguments: an array (`input[]`) of `Input` structs, a
 string `raw` that represents the user's raw command-line input, and a pointer to
 `commandCount`, initialized in `main()`. Inside, the `raw` input is tokenized
@@ -16,8 +22,14 @@ is then inserted in sequential order to the `input` array. This process
 increments `commandCount` with each one discovered and continues until no tokens
 remain.
 
-### int parseInput: 
-This was the function we used to parse our input. The function takes in a pointer to a struct type Input. Intially input from the user is stored all in the command attribute of the Input struct, however we use a tokenizer to place commands into the command attribute and arguments into the argument attribute of the Input struct. The way we determined if something was a command or argument was to implement logic that treats input before a space character was read as the command and anything after the space as the argument(s). We had a different function to handle piping, this function is only used when the user input has no piping.
+### int parseInput:
+This was the function we used to parse our input. The function takes in a
+pointer to a struct type Input. Initially input from the user is stored all in
+the command attribute of the Input struct, however we use a tokenizer to place
+commands into the command attribute and arguments into the argument attribute of
+the Input struct. The way we determined if something was a command or argument
+was to implement logic that treats input before a space character was read as
+the command and anything after the space as the argument(s).
 
 ### void checkRedirect:
 `checkRedirect()` is the largest of the functions in the `sshell`. It takes one
@@ -59,8 +71,9 @@ meta-character(s) but no file name, printing the "No output file" message on
 `stderr`, setting the `errorFlag` and stopping further execution. The function's
 return value is the `errorFlag`.
 
-### void printCmdCompletion: 
-This function simply just prints the completed message after a command is executed and completed.
+### void printCmdCompletion:
+This function simply just prints the completed message after a command is
+executed and completed.
 
 ### void executeCommands:
 `executeCommands()` is perhaps the most vital part of `sshell`. It accepts three
@@ -90,14 +103,24 @@ and `scandir()` to discover files. File information is returned from iterative
 calls to `stat()`. The formatted file name and size is then printed to `stdout`,
 and `printCmdCompletion()` is called.
 
-### int main: 
-The main function is just a while loop that calls the above functions when appropriate. The only time the loop will break is when the user enters 'exit'. After taking the user input we send it in, so that it is parsed, once it is parsed, we keep track of how many commands are in the user input and iterate through our array of commands. We iterate through it using a for loop followed by a series of if conditions that check to see if either certain commands have certain characters or flags that indicate what type of command it is. If the command meets the condition of the if statement then it is passed to the appropriate function. This process repeats until the user enters 'exit' as tge user input.
+### int main:
+The main function is just a while loop that calls the above functions when
+appropriate. The only time the loop will break is when the user enters 'exit'.
+After taking the user input we send it in, so that it is parsed, once it is
+parsed, we keep track of how many commands are in the user input and iterate
+through our array of commands. We iterate through it using a for loop followed
+by a series of if conditions that check to see if either certain commands have
+certain characters or flags that indicate what type of command it is. If the
+command meets the condition of the if statement then it is passed to the
+appropriate function. This process repeats until the user enters 'exit' as the
+user input.
 
 ## Testing:
 
 - We used the tester provided by the professor to do some basic testing.
 - We added some more tests to the tester to do more rigorous testing.
-- We completed many manual sorts of testing and rigrously tested all the commands especially piplining. 
+- We completed many manual sorts of testing and rigorously tested all the commands
+especially pipelining.
 
 ## Sources:
 - stackoverflow.com
